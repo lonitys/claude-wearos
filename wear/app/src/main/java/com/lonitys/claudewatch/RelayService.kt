@@ -14,8 +14,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.json.JSONObject
@@ -38,7 +39,7 @@ class RelayService : Service() {
             ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING,
         )
         scope.launch {
-            WatchState.connected.distinctUntilChanged().collect { connected ->
+            WatchState.connected.collect { connected ->
                 getSystemService(NotificationManager::class.java)
                     .notify(Notifier.SERVICE_ID, Notifier.serviceNotification(this@RelayService, connected))
             }
@@ -61,13 +62,14 @@ class RelayService : Service() {
     private suspend fun pollForever() {
         val prefs = Prefs(this)
         var backoff = 2_000L
-        while (scope.isActive) {
+        // Check this coroutine (not the scope): a settings change cancels it and starts a new loop.
+        while (currentCoroutineContext().isActive) {
             try {
                 val client = prefs.client()
                 var last = applyState(client.state())
                 WatchState.setConnected(true)
                 backoff = 2_000L
-                while (scope.isActive) {
+                while (currentCoroutineContext().isActive) {
                     val res = client.events(last)
                     val newLast = res.getLong("last")
                     if (newLast < last) break // relay restarted: resync from /state
@@ -75,6 +77,8 @@ class RelayService : Service() {
                     for (i in 0 until events.length()) handleEvent(events.getJSONObject(i))
                     last = newLast
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.w(TAG, "relay connection failed: ${e.message}")
                 WatchState.setConnected(false)
