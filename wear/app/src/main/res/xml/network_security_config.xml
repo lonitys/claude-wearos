@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The relay usually runs on the local network without TLS, so plain HTTP is
+     allowed. Use an https:// URL (e.g. via a tunnel) when leaving the LAN. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

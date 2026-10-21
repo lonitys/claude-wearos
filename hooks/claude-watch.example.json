@@ -1,0 +1,6 @@
+{
+  "url": "http://127.0.0.1:8787",
+  "token": "HIER-DEIN-GEHEIMES-TOKEN",
+  "permission_timeout": 300,
+  "reply_wait": 0
+}
